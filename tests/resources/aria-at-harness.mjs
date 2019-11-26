@@ -2,10 +2,12 @@ import {isKnownAT, getATCommands, getModeInstructions, getAdditionalAssertions} 
 
 const DEFAULT_AT = 'JAWS';
 const UNDESIRABLES = [
-  "Assistive technology produced irrelevent and distracting output.",
-  "Cursor jumped to annoying location.",
-  "Assitive technology crashed.",
-  "Browser crashed or froze.",
+  "Output is excessively verbose, e.g., includes redundant and/or irrelevant speech",
+  "Reading cursor position changed in an unexpected manner",
+  "Screen reader became extremely sluggish",
+  "Screen reader crashed",
+  "Browser crashed",
+  "Other"
 ];
 
 const TEST_HTML_OUTLINE = `
@@ -115,6 +117,7 @@ export function verifyATBehavior(behavior) {
   for (let m = 0; m < behavior.mode.length; m++) {
     let newBehavior = Object.assign({}, behavior, { mode: behavior.mode[m] });
     newBehavior.commands = getATCommands(behavior.mode[m], behavior.task, at);
+    newBehavior.output_assertions = newBehavior.output_assertions ? newBehavior.output_assertions : [];
     if (newBehavior.commands.length) {
       allBehaviors.push(newBehavior);
     }
@@ -158,7 +161,7 @@ function displayInstructionsForBehaviorTest(behaviorId) {
   const userInstructions = behavior.specific_user_instruction;
   const commands = behavior.commands;
   const assertions = behavior.output_assertions;
-  const additionalBehaviorAssertions = behavior.additional_assertions || [];
+  const additionalBehaviorAssertions = behavior.additional_assertions ? behavior.additional_assertions[at.toLowerCase()] || [] : [];
 
   let instructionsEl = document.getElementById('instructions');
   instructionsEl.innerHTML = `
@@ -167,7 +170,7 @@ function displayInstructionsForBehaviorTest(behaviorId) {
 <h2>Test instructions</h2>
 <ol>
   <li><em>${modeInstructions}</em></li>
-  <li>Then, perform the task "<em>${userInstructions}</em>" using each of the following methods:
+  <li>Then, perform the task "<em>${userInstructions}</em>" using the following commands:
     <ul id='at_controls' aria-label='AT controls'>
     </ul>
   </li>
@@ -178,31 +181,21 @@ function displayInstructionsForBehaviorTest(behaviorId) {
 </ul>
 `;
 
-  let currentInstruction = commands[0][0];
-  let instructionEl = document.createElement('li');
-  instructionEl.innerHTML = `${currentInstruction}`;
-  document.getElementById('at_controls').append(instructionEl);
-  let instructionListEl = document.createElement('ul');
-  document.getElementById('at_controls').append(instructionListEl);
-
-
   for (let command of commands) {
-    if (command[0] !== currentInstruction) {
-      currentInstruction = command[0];
-      instructionEl = document.createElement('li');
-      instructionEl.innerHTML = `${currentInstruction}`;
-      document.getElementById('at_controls').append(instructionEl);
-      instructionListEl = document.createElement('ul');
-      document.getElementById('at_controls').append(instructionListEl);
-    }
-    let el = document.createElement('li');
-    el.innerHTML = `<em>${command[1]}</em>`;
-    instructionListEl.append(el);
+    let commandEl = document.createElement('li');
+    commandEl.innerHTML = `${command}`;
+    document.getElementById('at_controls').append(commandEl);
   }
 
   for (let assertion of assertions) {
     let el = document.createElement('li');
     el.innerHTML = `<em>${assertion}</em>`;
+    document.getElementById('assertions').append(el);
+  }
+
+  for (let additional of additionalBehaviorAssertions) {
+    let el = document.createElement('li');
+    el.innerHTML = `<em>${additional.assertion}</em>`;
     document.getElementById('assertions').append(el);
   }
 
@@ -217,8 +210,10 @@ function displayInstructionsForBehaviorTest(behaviorId) {
 
   let recordResults = `<h2>Record Results</h2><p>${document.title}</p>`;
 
+  console.log(commands);
+
   for (let c = 0; c < commands.length; c++) {
-    recordResults += `<h3 id="header-cmd-${c}">After: '${commands[c][0]} ${commands[c][1]}'</h3>`;
+    recordResults += `<h3 id="header-cmd-${c}">After: '${commands[c]}'</h3>`;
     recordResults += `
 <p>
   <fieldset id="cmd-${c}-summary">
@@ -226,11 +221,11 @@ function displayInstructionsForBehaviorTest(behaviorId) {
     <input type="text" id="speechoutput-${c}">
     <div>
       <input type="radio" id="allpass-${c}" class="allpass" name="allresults-${c}">
-      <label for="allpass-${c}">All assertions have been meet after ${commands[c][1]} and there was no additional unexpected or undesirable behaviors.</label>
+      <label for="allpass-${c}">All assertions have been meet after ${commands[c]} and there was no additional unexpected or undesirable behaviors.</label>
     </div>
     <div>
       <input type="radio" id="somefailure-${c}" class="somefailure" name="allresults-${c}">
-      <label for="somefailure-${c}">Some assertions have not been met after ${commands[c][1]} or there as an additional unexpected or undesirable behavior.</label>
+      <label for="somefailure-${c}">Some assertions have not been met after ${commands[c]} or there as an additional unexpected or undesirable behavior.</label>
     </div>
   </fieldset>
 </p>
@@ -266,7 +261,7 @@ function displayInstructionsForBehaviorTest(behaviorId) {
 `;
     }
 
-    let additionalAssertions = getAdditionalAssertions(additionalBehaviorAssertions, commands[c][1], mode, at);
+    let additionalAssertions = getAdditionalAssertions(additionalBehaviorAssertions, commands[c], mode);
     for (let n = 0; n < additionalAssertions.length; n++) {
       let a = assertions.length + n;
       recordResults += `
@@ -531,9 +526,9 @@ function endTest() {
     for (let assertionResult of result.assertionResults) {
       resulthtml += `<tr><td>${assertionResult.status}</td><td>${assertionResult.name}</td>`;
 
-      let failingCmds = assertionResult.details.fail.map((f) => f[1]);
-      let passingCmds = assertionResult.details.pass.map((p) => p[1]);
-      let missingCmds = assertionResult.details.missing.map((p) => p[1]);
+      let failingCmds = assertionResult.details.fail;
+      let passingCmds = assertionResult.details.pass;
+      let missingCmds = assertionResult.details.missing;
 
       resulthtml += '<td><ul>';
       if (passingCmds.length) {
@@ -553,8 +548,7 @@ function endTest() {
     if (result.undesirables.length > 0) {
       resulthtml += `<p>The following unwanted behaviors were observed:<p><table>`;
       for (let undesirable of result.undesirables) {
-	let badCmds = undesirable.cmds.map((c) => c[1]);
-	resulthtml += `<tr><td>${undesirable.undesirable}</td><td>This behavior occured after the following commands: ${badCmds.join(', ')}</td></tr>`;
+	resulthtml += `<tr><td>${undesirable.undesirable}</td><td>This behavior occured after the following commands: ${undesirable.cmds.join(', ')}</td></tr>`;
       }
       resulthtml += `</table>`;
     }
