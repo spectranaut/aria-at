@@ -68,6 +68,6 @@ export default {
     require.resolve('react-static-plugin-reach-router'),
     require.resolve('react-static-plugin-sitemap'),
   ],
-  siteRoot: "https://w3c.github.io",
+  siteRoot: "https://spectranaut.github.io",
   basePath: "aria-at",
 }
