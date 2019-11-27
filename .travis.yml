@@ -1,7 +1,12 @@
 language: node_js
+node_js:
+  - lts/*
 
 git:
   depth: 3
+
+before_install:
+  - npm i -g npm@6.10.2
 
 stages:
   - deploy
