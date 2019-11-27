@@ -12,12 +12,14 @@ jobs:
       name: "Deploy to gh-pages"
       if: branch = master
       script:
-        - npm run deploy
+        - git clone --depth=1 --branch=gh-pages https://github.com/w3c/aria-at.git gh-pages
+	- npm install
+        - npm run build
       deploy:
         provider: pages
         skip-cleanup: true
         github-token: $GH_TOKEN
         keep-history: true
-        local-dir: gh-pages
+        local-dir: dist
         on:
           branch: master
