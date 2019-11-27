@@ -13,7 +13,7 @@ jobs:
       if: branch = master
       script:
         - git clone --depth=1 --branch=gh-pages https://github.com/w3c/aria-at.git gh-pages
-	- npm install
+        - npm install
         - npm run build
       deploy:
         provider: pages
