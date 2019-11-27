@@ -12,7 +12,8 @@ jobs:
       name: "Deploy to gh-pages"
       if: branch = master
       script:
-        - git clone --depth=1 --branch=gh-pages https://github.com/w3c/aria-at.git gh-pages
+        - git clone --depth=1 --branch=gh-pages https://github.com/w3c/aria-at.git
+        - cd aria-at
         - npm install
         - npm run build
       deploy:
