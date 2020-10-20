@@ -9,7 +9,8 @@ import * as keys from '../tests/resources/keys.mjs';
 
 const testDir = path.resolve('.', 'tests');
 const templateFile = path.resolve('.', 'scripts', 'review-template.mustache');
-const reviewDir = path.resolve('.', 'public', 'review');
+const templateIndexFile = path.resolve('.', 'scripts', 'review-index-template.mustache');
+const reviewDir = path.resolve('.', 'review');
 const allTestsForPattern = {};
 const support = JSON.parse(fse.readFileSync(path.join(testDir, 'support.json')));
 let allATKeys = [];
@@ -128,7 +129,8 @@ fse.readdirSync(testDir).forEach(function (subDir) {
 	  testNumber: tests.length+1,
 	  name: testFullName,
 	  location: `/${subDir}/${test}`,
-	  allReleventATs: testData.applies_to.join(', '),
+	  allReleventATsFormatted: testData.applies_to.join(', '),
+	  allReleventATs: testData.applies_to,
 	  task,
 	  mode,
 	  ATTests,
@@ -149,6 +151,8 @@ if (!fse.existsSync(reviewDir)){
     fse.mkdirSync(reviewDir);
 }
 
+var indexTemplate = fse.readFileSync(templateIndexFile, 'utf8');
+
 console.log("\n");
 
 for (let pattern in allTestsForPattern) {
@@ -164,5 +168,12 @@ for (let pattern in allTestsForPattern) {
   fse.writeFileSync(summaryFile, rendered);
   console.log(`Summarized ${pattern} tests: ${summaryFile}`);
 }
+
+const renderedIndex = mustache.render(indexTemplate, {
+  patterns: Object.keys(allTestsForPattern).map(pattern => ({ name: pattern, numberOfTests: allTestsForPattern[pattern].length }))
+});
+const indexFile = path.resolve('.', 'index.html');
+fse.writeFileSync(indexFile, renderedIndex);
+console.log(`Generated: ${indexFile}`);
 
 console.log("\n\nDone.");
